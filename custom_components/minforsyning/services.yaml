@@ -1,6 +1,6 @@
 # Service ID
 set_token:
-  description: Gem et Bearer-token på alle indlæste minForsyning-instanser, eller på én valgt instans.
+  description: Gem et Bearer-token på alle indlæste minForsyning-instanser, eller på én valgt instans. Chrome-udvidelsen fra Novafos kalder den samme funktion via novafos.update_token og sender kun access_token.
   fields:
     config_entry_id:
       name: Integration instance
@@ -13,6 +13,6 @@ set_token:
       example: "ey... long token"
       default: ""
     access_token_date_updated:
-      required: true
+      required: false
       example: "2024-01-01T12:34:00"
       default: ""
