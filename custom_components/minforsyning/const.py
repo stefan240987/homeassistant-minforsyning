@@ -19,6 +19,14 @@ DEFAULT_NAME = "minForsyning"
 # External statistic for district heating, shown in the Energy dashboard.
 FJERNVARME_STATISTIC_ID = f"{DOMAIN}:fjernvarme_forbrug"
 
+# Halsnæs Forsyning, Priser for varme 2026, Hundested Varme.
+# Variabelt bidrag: 1.000,00 kr. pr. MWh inkl. moms, som er 1,00 kr. pr. kWh.
+# https://hnf.dk/files/media/document/VARME_Hundested_2026.pdf
+HUNDESTED_2026_KR_PER_KWH = 1.0
+HUNDESTED_2026_PRICE_SOURCE = "Hundested Varme 2026, variabelt bidrag inkl. moms"
+# Fast bidrag pr. m², inkl. moms. Arealet kommer fra BBR.
+HUNDESTED_2026_KR_PER_M2 = 37.30
+
 
 def meter_statistics_key(data, meter_type):
     """Scope new entries to a customer and meter, preserving legacy IDs."""

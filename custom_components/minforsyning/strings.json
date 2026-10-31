@@ -43,7 +43,8 @@
       "init": {
         "data": {
           "access_token": "Insert a working access token (leave blank to keep current token)",
-          "use_external_statistics": "Create external hourly consumption statistics for trend graphs"
+          "use_external_statistics": "Create external hourly consumption statistics for trend graphs",
+          "bbr_api_key": "Datafordeler API key for BBR floor area (leave blank to keep the current key)"
         }
       }
     }

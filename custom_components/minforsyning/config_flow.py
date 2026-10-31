@@ -237,6 +237,13 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         self._config_entry.data.get("use_external_statistics", True),
                     ),
                 ): bool,
+                vol.Optional(
+                    "bbr_api_key",
+                    default=self._config_entry.options.get(
+                        "bbr_api_key",
+                        self._config_entry.data.get("bbr_api_key", ""),
+                    ),
+                ): str,
             }
 
             return self.async_show_form(
@@ -253,6 +260,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             )
             user_input["access_token_date_updated"] = self._config_entry.options.get(
                 "access_token_date_updated", ""
+            )
+        if not str(user_input.get("bbr_api_key") or "").strip():
+            user_input["bbr_api_key"] = self._config_entry.options.get(
+                "bbr_api_key", self._config_entry.data.get("bbr_api_key", "")
             )
         return self.async_create_entry(title="", data=user_input)
 

@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.const import CONF_NAME, UnitOfEnergy
+from homeassistant.const import CONF_NAME, UnitOfArea, UnitOfEnergy
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import (
@@ -18,6 +18,8 @@ from homeassistant.helpers.update_coordinator import (
 
 from .const import (
     DOMAIN,
+    HUNDESTED_2026_KR_PER_M2,
+    HUNDESTED_2026_PRICE_SOURCE,
     WATER_SENSOR_TYPES,
     HEATING_SENSOR_TYPES,
     meter_statistics_key,
@@ -63,9 +65,13 @@ async def async_setup_entry(
             )
 
     sensors.append(LatestDailyConsumptionSensor(name, coordinator, config))
+    sensors.append(LatestDailyCostSensor(name, coordinator, config))
     sensors.append(AccumulatedConsumptionSensor(name, coordinator, config))
     sensors.append(CurrentMonthConsumptionSensor(name, coordinator, config))
+    sensors.append(CurrentMonthCostSensor(name, coordinator, config))
     sensors.append(CurrentYearConsumptionSensor(name, coordinator, config))
+    sensors.append(CurrentYearCostSensor(name, coordinator, config))
+    sensors.append(FloorAreaSensor(name, coordinator, config))
     sensors.append(TokenStatusSensor(name, coordinator, config))
 
     async_add_entities(sensors)
@@ -165,20 +171,138 @@ def _daily_points(coordinator) -> list:
     return _series_points(coordinator, "daily_points")
 
 
+def _history_points(coordinator) -> list:
+    """Days in the current year, or the last 30 days when the year is missing."""
+    points = _series_points(coordinator, "history_points")
+    if points:
+        return points
+    return _daily_points(coordinator)
+
+
+def _price_per_kwh(coordinator):
+    price = getattr(coordinator, "price_per_kwh", None)
+    if isinstance(price, bool) or not isinstance(price, (int, float)):
+        return None
+    return float(price)
+
+
+def _kroner(kwh, price):
+    if kwh is None or price is None:
+        return None
+    return round(float(kwh) * price, 2)
+
+
+def _currency(coordinator) -> str:
+    hass = getattr(coordinator, "hass", None)
+    config = getattr(hass, "config", None)
+    currency = getattr(config, "currency", None)
+    if isinstance(currency, str) and currency:
+        return currency
+    return "DKK"
+
+
+def _danish_day_label(start) -> str | None:
+    if not isinstance(start, datetime):
+        return None
+    local = start.astimezone(_COPENHAGEN)
+    return f"{local.day}. {_DANISH_MONTHS[local.month - 1]} {local.year}"
+
+
+def _day_label(point) -> str | None:
+    return _danish_day_label(point.get("start"))
+
+
+def _month_label(point) -> str | None:
+    start = point.get("start")
+    if not isinstance(start, datetime):
+        return None
+    local = start.astimezone(_COPENHAGEN)
+    return f"{_DANISH_MONTHS[local.month - 1]} {local.year}"
+
+
+def _labeled_values(points, label_fn, price=None) -> dict[str, float]:
+    labeled: dict[str, float] = {}
+    for point in points:
+        label = label_fn(point)
+        if label is None:
+            continue
+        if price is None:
+            value = point.get("value_kwh")
+            if value is None:
+                continue
+            labeled[label] = float(value)
+            continue
+        kroner = _kroner(point.get("value_kwh"), price)
+        if kroner is None:
+            continue
+        labeled[label] = kroner
+    return labeled
+
+
 def _month_attributes(points) -> dict[str, Any]:
     """Map each month to kWh so the entity dialog can list the whole year."""
-    months: dict[str, float] = {}
-    for point in points:
-        start = point.get("start")
-        value = point.get("value_kwh")
-        if not isinstance(start, datetime) or value is None:
-            continue
-        local = start.astimezone(_COPENHAGEN)
-        label = f"{_DANISH_MONTHS[local.month - 1]} {local.year}"
-        months[label] = float(value)
+    months = _labeled_values(points, _month_label)
     if not months:
         return {}
     return {"måneder": months}
+
+
+def _rate_attributes(coordinator) -> dict[str, Any]:
+    price = _price_per_kwh(coordinator)
+    if price is None:
+        return {}
+    return {
+        "pris_pr_kwh": round(price, 4),
+        "priskilde": HUNDESTED_2026_PRICE_SOURCE,
+    }
+
+
+def _latest_kwh(points):
+    if not points:
+        return None
+    return points[-1].get("value_kwh")
+
+
+def _floor_area_m2(coordinator):
+    area = getattr(coordinator, "floor_area_m2", None)
+    if isinstance(area, bool) or not isinstance(area, (int, float)):
+        return None
+    if area <= 0:
+        return None
+    return float(area)
+
+
+def _fixed_area_cost(coordinator):
+    area = _floor_area_m2(coordinator)
+    if area is None:
+        return None
+    return round(area * HUNDESTED_2026_KR_PER_M2, 2)
+
+
+def _year_cost(coordinator):
+    variable = _kroner(_year_kwh(coordinator), _price_per_kwh(coordinator))
+    if variable is None:
+        return None
+    fixed = _fixed_area_cost(coordinator)
+    if fixed is None:
+        return variable
+    return round(variable + fixed, 2)
+
+
+def _year_kwh(coordinator):
+    yearly = _series_points(coordinator, "yearly_points")
+    if yearly:
+        return yearly[-1].get("value_kwh")
+    monthly = _series_points(coordinator, "monthly_points")
+    if not monthly:
+        return None
+    total = 0.0
+    for point in monthly:
+        value = point.get("value_kwh")
+        if value is None:
+            continue
+        total += float(value)
+    return total
 
 
 class LatestDailyConsumptionSensor(CoordinatorEntity, SensorEntity):
@@ -199,10 +323,61 @@ class LatestDailyConsumptionSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self) -> StateType:
-        points = _daily_points(self.coordinator)
+        return _latest_kwh(_history_points(self.coordinator))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        points = _history_points(self.coordinator)
         if not points:
-            return None
-        return points[-1].get("value_kwh")
+            return {}
+        attrs: dict[str, Any] = {}
+        label = _danish_day_label(points[-1].get("start"))
+        if label:
+            attrs["dato"] = label
+        days = _labeled_values(points, _day_label)
+        if days:
+            attrs["dage"] = days
+        return attrs
+
+
+class LatestDailyCostSensor(CoordinatorEntity, SensorEntity):
+    """Pris for den seneste dag, i kroner. Tidligere dage ligger som attributter."""
+
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 2
+    _attr_icon = "mdi:cash"
+
+    def __init__(self, name, coordinator, config):
+        super().__init__(coordinator)
+        scope = _sensor_scope(config)
+        self._attr_name = f"{name} Seneste dagspris"
+        self._attr_unique_id = f"{DOMAIN}_{scope}_seneste_dagspris"
+        self.entity_id = f"sensor.{self._attr_unique_id}"
+        self._attr_native_unit_of_measurement = _currency(coordinator)
+
+    @property
+    def native_value(self) -> StateType:
+        points = _history_points(self.coordinator)
+        return _kroner(_latest_kwh(points), _price_per_kwh(self.coordinator))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        points = _history_points(self.coordinator)
+        attrs = _rate_attributes(self.coordinator)
+        if not points:
+            return attrs
+        label = _danish_day_label(points[-1].get("start"))
+        if label:
+            attrs["dato"] = label
+        prices = _labeled_values(
+            points,
+            _day_label,
+            _price_per_kwh(self.coordinator),
+        )
+        if prices:
+            attrs["priser"] = prices
+        return attrs
 
 
 class AccumulatedConsumptionSensor(CoordinatorEntity, SensorEntity):
@@ -263,6 +438,40 @@ class CurrentMonthConsumptionSensor(CoordinatorEntity, SensorEntity):
         return _month_attributes(_series_points(self.coordinator, "monthly_points"))
 
 
+class CurrentMonthCostSensor(CoordinatorEntity, SensorEntity):
+    """Pris for den seneste måned, i kroner. Øvrige måneder ligger som attributter."""
+
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 2
+    _attr_icon = "mdi:cash"
+
+    def __init__(self, name, coordinator, config):
+        super().__init__(coordinator)
+        scope = _sensor_scope(config)
+        self._attr_name = f"{name} Månedens pris"
+        self._attr_unique_id = f"{DOMAIN}_{scope}_maanedens_pris"
+        self.entity_id = f"sensor.{self._attr_unique_id}"
+        self._attr_native_unit_of_measurement = _currency(coordinator)
+
+    @property
+    def native_value(self) -> StateType:
+        points = _series_points(self.coordinator, "monthly_points")
+        return _kroner(_latest_kwh(points), _price_per_kwh(self.coordinator))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        attrs = _rate_attributes(self.coordinator)
+        prices = _labeled_values(
+            _series_points(self.coordinator, "monthly_points"),
+            _month_label,
+            _price_per_kwh(self.coordinator),
+        )
+        if prices:
+            attrs["priser"] = prices
+        return attrs
+
+
 class CurrentYearConsumptionSensor(CoordinatorEntity, SensorEntity):
     """Forbrug i det igangværende kalenderår, i kWh."""
 
@@ -281,19 +490,59 @@ class CurrentYearConsumptionSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def native_value(self) -> StateType:
-        yearly = _series_points(self.coordinator, "yearly_points")
-        if yearly:
-            return yearly[-1].get("value_kwh")
-        monthly = _series_points(self.coordinator, "monthly_points")
-        if not monthly:
-            return None
-        total = 0.0
-        for point in monthly:
-            value = point.get("value_kwh")
-            if value is None:
-                continue
-            total += float(value)
-        return total
+        return _year_kwh(self.coordinator)
+
+
+class CurrentYearCostSensor(CoordinatorEntity, SensorEntity):
+    """Pris for det igangværende kalenderår, i kroner."""
+
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 2
+    _attr_icon = "mdi:cash"
+
+    def __init__(self, name, coordinator, config):
+        super().__init__(coordinator)
+        scope = _sensor_scope(config)
+        self._attr_name = f"{name} Årets pris"
+        self._attr_unique_id = f"{DOMAIN}_{scope}_aarets_pris"
+        self.entity_id = f"sensor.{self._attr_unique_id}"
+        self._attr_native_unit_of_measurement = _currency(coordinator)
+
+    @property
+    def native_value(self) -> StateType:
+        return _year_cost(self.coordinator)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        attrs = _rate_attributes(self.coordinator)
+        area = _floor_area_m2(self.coordinator)
+        fixed = _fixed_area_cost(self.coordinator)
+        if area is not None:
+            attrs["boligareal_m2"] = area
+        if fixed is not None:
+            attrs["fast_bidrag"] = fixed
+        return attrs
+
+
+class FloorAreaSensor(CoordinatorEntity, SensorEntity):
+    """Boligareal fra BBR, i kvadratmeter."""
+
+    _attr_native_unit_of_measurement = UnitOfArea.SQUARE_METERS
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 0
+    _attr_icon = "mdi:floor-plan"
+
+    def __init__(self, name, coordinator, config):
+        super().__init__(coordinator)
+        scope = _sensor_scope(config)
+        self._attr_name = f"{name} Boligareal"
+        self._attr_unique_id = f"{DOMAIN}_{scope}_boligareal"
+        self.entity_id = f"sensor.{self._attr_unique_id}"
+
+    @property
+    def native_value(self) -> StateType:
+        return _floor_area_m2(self.coordinator)
 
 
 class TokenStatusSensor(CoordinatorEntity, SensorEntity):

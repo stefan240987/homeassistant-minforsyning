@@ -30,13 +30,20 @@ Integrationen ligger ikke i den fælles HACS-liste. Du tilføjer den som dit ege
 
 Når tokenet er sat, opretter integrationen disse sensorer:
 
-- **Seneste dagsforbrug**: den sidste færdige dag, i kWh.
+- **Seneste dagsforbrug**: den sidste færdige dag, i kWh. Datoen står på sensoren, og årets øvrige dage står som ekstra oplysninger.
+- **Seneste dagspris**: prisen for den sidste færdige dag, i kroner. Tidligere dage i år står på sensoren.
 - **Akkumuleret totalforbrug**: summen af de seneste 30 dage, i kWh.
 - **Månedens forbrug**: den seneste måned i år, i kWh. De øvrige måneder i år står på sensoren som ekstra oplysninger.
+- **Månedens pris**: prisen for den seneste måned, i kroner. De øvrige måneder står på sensoren.
 - **Årets forbrug**: hele det igangværende år, i kWh.
+- **Årets pris**: prisen for hele det igangværende år, i kroner.
 - **Token-status**: om login-tokenet stadig er gyldigt.
 
-Energi-dashboardet bruger de seneste 30 dages dagsforbrug. Måned og år læses på de to sensorer ovenfor.
+Prisen for forbruget er det variable bidrag fra Halsnæs Forsynings prisblad for Hundested Varme 2026: 1,00 kr. pr. kWh inkl. moms.
+
+**Boligareal** hentes fra BBR ud fra adressen på kontoen. Årets pris lægger det faste bidrag oveni: 37,30 kr. pr. m² inkl. moms. BBR kræver en gratis nøgle fra Datafordeleren. Den sættes under integrationens **Konfigurer**. Uden nøglen vises forbrug og den variable pris stadig, men arealet bliver tomt.
+
+Energi-dashboardet bruger de seneste 30 dages dagsforbrug. Måned, år og de enkelte dage læses på sensorerne ovenfor.
 
 ---
 ## Configuration

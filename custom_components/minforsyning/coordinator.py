@@ -33,7 +33,13 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, FJERNVARME_STATISTIC_ID, meter_statistics_key
+from .bbr import lookup_floor_area
+from .const import (
+    DOMAIN,
+    FJERNVARME_STATISTIC_ID,
+    HUNDESTED_2026_KR_PER_KWH,
+    meter_statistics_key,
+)
 from .pynovafos.novafos import Novafos
 
 _LOGGER = logging.getLogger(__name__)
@@ -61,8 +67,11 @@ class NovafosUpdateCoordinator(DataUpdateCoordinator):
         )
 
         self.daily_points = []
+        self.history_points = []
         self.monthly_points = []
         self.yearly_points = []
+        self.price_per_kwh = HUNDESTED_2026_KR_PER_KWH
+        self.floor_area_m2 = None
         super().__init__(hass, _LOGGER, name="minForsyning")
 
     async def _async_update_data(self):
@@ -80,8 +89,11 @@ class NovafosUpdateCoordinator(DataUpdateCoordinator):
         meter_year_data = None
         hourly_statistics = None
         self.daily_points = []
+        self.history_points = []
         self.monthly_points = []
         self.yearly_points = []
+        self.price_per_kwh = HUNDESTED_2026_KR_PER_KWH
+        self.floor_area_m2 = None
         if await self.hass.async_add_executor_job(
             self.api.authenticate_using_access_token,
             self.access_token,
@@ -117,6 +129,27 @@ class NovafosUpdateCoordinator(DataUpdateCoordinator):
                 if not isinstance(yearly_points, list):
                     yearly_points = []
                 self.yearly_points = yearly_points
+                history_points = await self.hass.async_add_executor_job(
+                    self.api.get_current_year_days
+                )
+                if not isinstance(history_points, list):
+                    history_points = []
+                self.history_points = history_points
+                api_key = self.entry.options.get(
+                    "bbr_api_key", self.entry.data.get("bbr_api_key", "")
+                )
+                floor_area = await self.hass.async_add_executor_job(
+                    lookup_floor_area,
+                    getattr(self.api, "_street_address", None)
+                    or self.entry.data.get("address"),
+                    getattr(self.api, "_city", None),
+                    api_key,
+                )
+                if isinstance(floor_area, bool) or not isinstance(
+                    floor_area, (int, float)
+                ):
+                    floor_area = None
+                self.floor_area_m2 = floor_area
                 data = (self.api._meter_data, meter_year_data)  # , last_state)
             except Exception as ex:
                 raise UpdateFailed(f"The service is unavailable: {ex}")

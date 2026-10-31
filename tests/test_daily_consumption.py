@@ -11,7 +11,19 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from custom_components.minforsyning.const import DOMAIN, FJERNVARME_STATISTIC_ID
+from custom_components.minforsyning.bbr import (
+    address_id_from_search,
+    address_search_text,
+    bbr_area_query,
+    living_area_from_bbr,
+    lookup_floor_area,
+)
+from custom_components.minforsyning.const import (
+    DOMAIN,
+    FJERNVARME_STATISTIC_ID,
+    HUNDESTED_2026_KR_PER_KWH,
+    HUNDESTED_2026_PRICE_SOURCE,
+)
 from custom_components.minforsyning.coordinator import NovafosUpdateCoordinator
 from custom_components.minforsyning.pynovafos.novafos import (
     LOGIN_URL,
@@ -24,7 +36,12 @@ from custom_components.minforsyning.pynovafos.novafos import (
 )
 from custom_components.minforsyning.sensor import (
     CurrentMonthConsumptionSensor,
+    CurrentMonthCostSensor,
     CurrentYearConsumptionSensor,
+    CurrentYearCostSensor,
+    FloorAreaSensor,
+    LatestDailyConsumptionSensor,
+    LatestDailyCostSensor,
 )
 from custom_components.minforsyning.services import async_setup_services
 from custom_components.minforsyning.token_status import (
@@ -314,6 +331,172 @@ def test_month_and_year_sensors_show_kwh():
         config,
     )
     assert fallback.native_value == 2418.0
+
+
+def test_bbr_area_uses_the_single_matching_address():
+    address_id = "88b0b220-e55a-46f8-8679-888216f35d1e"
+    assert address_search_text("Havnevej 8", "3300 Frederiksværk") == (
+        "Havnevej 8, 3300 Frederiksværk"
+    )
+    assert address_search_text("  Havnevej 8  ", "") == "Havnevej 8"
+    assert (
+        address_id_from_search(
+            {"fund": [{"type": "adresse", "id": address_id, "titel": "Havnevej 8"}]}
+        )
+        == address_id
+    )
+    assert (
+        address_id_from_search(
+            {
+                "fund": [
+                    {"type": "adresse", "id": address_id},
+                    {"type": "adresse", "id": "0a3f507e-f0e5-32b8-e044-0003ba298018"},
+                ]
+            }
+        )
+        is None
+    )
+    assert address_id_from_search({"fund": [{"type": "vej", "id": address_id}]}) is None
+    query = bbr_area_query(address_id, "2026-10-31T12:00:00Z")
+    assert address_id in query
+    assert bbr_area_query("not-an-id", "2026-10-31T12:00:00Z") is None
+    assert living_area_from_bbr(
+        {
+            "data": {
+                "BBR_Enhed": {
+                    "nodes": [
+                        {"enh027ArealTilBeboelse": 120, "enh026EnhedensSamledeAreal": 140}
+                    ]
+                }
+            }
+        }
+    ) == 120
+    assert living_area_from_bbr(
+        {"data": {"BBR_Enhed": {"nodes": [{"enh027ArealTilBeboelse": 0, "enh026EnhedensSamledeAreal": 48}]}}}
+    ) == 48
+    assert living_area_from_bbr({}) is None
+    assert lookup_floor_area("Havnevej 8", "3300 Frederiksværk", "") is None
+    assert lookup_floor_area("", "", "a-key") is None
+
+
+def test_hundested_2026_variable_price_is_one_krone_per_kwh():
+    assert HUNDESTED_2026_KR_PER_KWH == 1.0
+    assert HUNDESTED_2026_PRICE_SOURCE == (
+        "Hundested Varme 2026, variabelt bidrag inkl. moms"
+    )
+
+
+def test_current_year_days_use_daily_zoom(mocker, freezer):
+    freezer.move_to("2026-10-31T12:00:00+01:00")
+    api = _heating_api()
+    response = Mock(status_code=200)
+    response.json.return_value = {"Series": [{"Data": []}]}
+    post = mocker.patch("requests.post", return_value=response)
+
+    assert api.get_current_year_days() == []
+
+    body = post.call_args.kwargs["json"]
+    assert body["ZoomLevel"] == 2
+    tz = ZoneInfo("Europe/Copenhagen")
+    start_local = datetime(2026, 1, 1, tzinfo=tz)
+    end_local = datetime(2026, 12, 31, 23, 59, 59, tzinfo=tz)
+    assert body["DateFrom"] == api._utc_to_isostr(start_local.astimezone(timezone.utc))
+    assert body["DateTo"] == api._utc_to_isostr(end_local.astimezone(timezone.utc))
+
+
+def test_daily_sensor_shows_date_history_and_price():
+    tz = ZoneInfo("Europe/Copenhagen")
+    history = [
+        {
+            "start": datetime(2026, 10, 1, tzinfo=tz).astimezone(timezone.utc),
+            "value_kwh": 16.0,
+        },
+        {
+            "start": datetime(2026, 10, 30, tzinfo=tz).astimezone(timezone.utc),
+            "value_kwh": 11.0,
+        },
+    ]
+    monthly = [
+        {
+            "start": datetime(2026, 1, 1, tzinfo=tz).astimezone(timezone.utc),
+            "value_kwh": 1500.0,
+        },
+        {
+            "start": datetime(2026, 10, 1, tzinfo=tz).astimezone(timezone.utc),
+            "value_kwh": 918.0,
+        },
+    ]
+    yearly = [
+        {
+            "start": datetime(2026, 1, 1, tzinfo=tz).astimezone(timezone.utc),
+            "value_kwh": 11278.0,
+        }
+    ]
+    coordinator = SimpleNamespace(
+        history_points=history,
+        daily_points=[],
+        monthly_points=monthly,
+        yearly_points=yearly,
+        price_per_kwh=HUNDESTED_2026_KR_PER_KWH,
+    )
+    config = SimpleNamespace(data={}, entry_id="entry-id")
+    day = LatestDailyConsumptionSensor("minForsyning", coordinator, config)
+    day_cost = LatestDailyCostSensor("minForsyning", coordinator, config)
+    month_cost = CurrentMonthCostSensor("minForsyning", coordinator, config)
+    year_cost = CurrentYearCostSensor("minForsyning", coordinator, config)
+
+    assert day.native_value == 11.0
+    assert day.extra_state_attributes["dato"] == "30. oktober 2026"
+    assert day.extra_state_attributes["dage"] == {
+        "1. oktober 2026": 16.0,
+        "30. oktober 2026": 11.0,
+    }
+    assert day_cost.native_value == 11.0
+    assert day_cost.extra_state_attributes["dato"] == "30. oktober 2026"
+    assert day_cost.extra_state_attributes["priser"]["1. oktober 2026"] == 16.0
+    assert day_cost.extra_state_attributes["priser"]["30. oktober 2026"] == 11.0
+    assert day_cost.extra_state_attributes["pris_pr_kwh"] == 1.0
+    assert day_cost.extra_state_attributes["priskilde"] == HUNDESTED_2026_PRICE_SOURCE
+    assert month_cost.native_value == 918.0
+    assert month_cost.extra_state_attributes["priser"] == {
+        "januar 2026": 1500.0,
+        "oktober 2026": 918.0,
+    }
+    assert year_cost.native_value == 11278.0
+
+    with_area = SimpleNamespace(
+        history_points=history,
+        daily_points=[],
+        monthly_points=monthly,
+        yearly_points=yearly,
+        price_per_kwh=HUNDESTED_2026_KR_PER_KWH,
+        floor_area_m2=100,
+    )
+    year_with_area = CurrentYearCostSensor("minForsyning", with_area, config)
+    area_sensor = FloorAreaSensor("minForsyning", with_area, config)
+    assert area_sensor.native_value == 100
+    assert year_with_area.native_value == 15008.0
+    assert year_with_area.extra_state_attributes["boligareal_m2"] == 100
+    assert year_with_area.extra_state_attributes["fast_bidrag"] == 3730.0
+
+    without_price = SimpleNamespace(
+        history_points=history,
+        daily_points=[],
+        monthly_points=monthly,
+        yearly_points=[],
+        price_per_kwh=None,
+    )
+    assert (
+        LatestDailyCostSensor("minForsyning", without_price, config).native_value
+        is None
+    )
+    fallback = LatestDailyConsumptionSensor(
+        "minForsyning",
+        SimpleNamespace(history_points=[], daily_points=history),
+        config,
+    )
+    assert fallback.native_value == 11.0
+    assert fallback.extra_state_attributes["dato"] == "30. oktober 2026"
 
 
 def test_missing_series_does_not_raise():

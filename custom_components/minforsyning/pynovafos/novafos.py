@@ -68,6 +68,8 @@ class Novafos:
         self._access_token = ""
         self._customer_id = ""
         self._customer_number = ""
+        self._street_address = ""
+        self._city = ""
         self._active_meters = []
         self._earliest_data_date = None
         self._meter_data = {}
@@ -200,6 +202,8 @@ class Novafos:
         customers = self.get_customers()
         self._customer_id = ""
         self._customer_number = ""
+        self._street_address = ""
+        self._city = ""
         try:
             if self._selected_customer_id is None:
                 customer = customers[0]
@@ -211,6 +215,10 @@ class Novafos:
                 )
             self._customer_id = str(customer["Id"])
             self._customer_number = customer_number_header(customer["Number"])
+            street = customer.get("StreetAddress")
+            city = customer.get("City")
+            self._street_address = street.strip() if isinstance(street, str) else ""
+            self._city = city.strip() if isinstance(city, str) else ""
         except (IndexError, KeyError, StopIteration, TypeError) as error:
             raise HTTPFailed("Selected customer is unavailable") from error
         _LOGGER.debug(
@@ -779,6 +787,10 @@ class Novafos:
     def get_current_year_total(self):
         """Yearly consumption for the current calendar year, in kWh."""
         return self._points_for_zoom("Year")
+
+    def get_current_year_days(self):
+        """Daily consumption for the current calendar year, in kWh."""
+        return self._points_for_zoom("Day")
 
     def _post_consumption(self, metering_device, date_from, date_to, zoom_level):
         """POST consumptionTimeSeries for one meter."""

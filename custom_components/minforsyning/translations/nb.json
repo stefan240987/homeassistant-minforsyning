@@ -44,7 +44,8 @@
             "init": {
                 "data": {
                     "access_token": "Indsæt adgangstoken til opsætning eller opdatering af sensorer",
-                    "use_external_statistics": "Opret eksterne timestatistikker til forbrugstendenser"
+                    "use_external_statistics": "Opret eksterne timestatistikker til forbrugstendenser",
+                    "bbr_api_key": "Datafordeler API-nøkkel for BBR-areal (la stå tom for å beholde nåværende nøkkel)"
                 }
             }
         }
