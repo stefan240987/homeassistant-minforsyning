@@ -6,6 +6,7 @@
   ],
   "config_flow": true,
   "dependencies": [],
+  "after_dependencies": ["recorder"],
   "documentation": "https://github.com/stefan240987/homeassistant-minforsyning",
   "homekit": {},
   "iot_class": "cloud_polling",
