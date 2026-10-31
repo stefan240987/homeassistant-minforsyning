@@ -1,0 +1,18 @@
+# Service ID
+set_token:
+  description: Gem et Bearer-token på alle indlæste minForsyning-instanser, eller på én valgt instans.
+  fields:
+    config_entry_id:
+      name: Integration instance
+      description: Valgfri. Vælg en instans ved separate logins. Ellers får alle indlæste instanser tokenet.
+      selector:
+        config_entry:
+          integration: minforsyning
+    access_token:
+      required: true
+      example: "ey... long token"
+      default: ""
+    access_token_date_updated:
+      required: true
+      example: "2024-01-01T12:34:00"
+      default: ""

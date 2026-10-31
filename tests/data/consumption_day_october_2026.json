@@ -1,0 +1,309 @@
+{
+  "SheetName": null,
+  "Series": [
+    {
+      "Data": [
+        {
+          "DateFrom": "2026-10-01T00:00:00+02:00",
+          "DateTo": "2026-10-01T23:59:59+02:00",
+          "Value": 0.016,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-02T00:00:00+02:00",
+          "DateTo": "2026-10-02T23:59:59+02:00",
+          "Value": 0.011,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-03T00:00:00+02:00",
+          "DateTo": "2026-10-03T23:59:59+02:00",
+          "Value": 0.013,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-04T00:00:00+02:00",
+          "DateTo": "2026-10-04T23:59:59+02:00",
+          "Value": 0.021,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-05T00:00:00+02:00",
+          "DateTo": "2026-10-05T23:59:59+02:00",
+          "Value": 0.014,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-06T00:00:00+02:00",
+          "DateTo": "2026-10-06T23:59:59+02:00",
+          "Value": 0.021,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-07T00:00:00+02:00",
+          "DateTo": "2026-10-07T23:59:59+02:00",
+          "Value": 0.019,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-08T00:00:00+02:00",
+          "DateTo": "2026-10-08T23:59:59+02:00",
+          "Value": 0.019,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-09T00:00:00+02:00",
+          "DateTo": "2026-10-09T23:59:59+02:00",
+          "Value": 0.031,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-10T00:00:00+02:00",
+          "DateTo": "2026-10-10T23:59:59+02:00",
+          "Value": 0.029,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-11T00:00:00+02:00",
+          "DateTo": "2026-10-11T23:59:59+02:00",
+          "Value": 0.035,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-12T00:00:00+02:00",
+          "DateTo": "2026-10-12T23:59:59+02:00",
+          "Value": 0.035,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-13T00:00:00+02:00",
+          "DateTo": "2026-10-13T23:59:59+02:00",
+          "Value": 0.039,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-14T00:00:00+02:00",
+          "DateTo": "2026-10-14T23:59:59+02:00",
+          "Value": 0.031,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-15T00:00:00+02:00",
+          "DateTo": "2026-10-15T23:59:59+02:00",
+          "Value": 0.028,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-16T00:00:00+02:00",
+          "DateTo": "2026-10-16T23:59:59+02:00",
+          "Value": 0.022,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-17T00:00:00+02:00",
+          "DateTo": "2026-10-17T23:59:59+02:00",
+          "Value": 0.028,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-18T00:00:00+02:00",
+          "DateTo": "2026-10-18T23:59:59+02:00",
+          "Value": 0.054,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-19T00:00:00+02:00",
+          "DateTo": "2026-10-19T23:59:59+02:00",
+          "Value": 0.054,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-20T00:00:00+02:00",
+          "DateTo": "2026-10-20T23:59:59+02:00",
+          "Value": 0.053,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-21T00:00:00+02:00",
+          "DateTo": "2026-10-21T23:59:59+02:00",
+          "Value": 0.039,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-22T00:00:00+02:00",
+          "DateTo": "2026-10-22T23:59:59+02:00",
+          "Value": 0.042,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-23T00:00:00+02:00",
+          "DateTo": "2026-10-23T23:59:59+02:00",
+          "Value": 0.034,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-24T00:00:00+02:00",
+          "DateTo": "2026-10-24T23:59:59+02:00",
+          "Value": 0.032,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-25T00:00:00+02:00",
+          "DateTo": "2026-10-25T23:59:59+01:00",
+          "Value": 0.038,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-26T00:00:00+01:00",
+          "DateTo": "2026-10-26T23:59:59+01:00",
+          "Value": 0.033,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-27T00:00:00+01:00",
+          "DateTo": "2026-10-27T23:59:59+01:00",
+          "Value": 0.036,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-28T00:00:00+01:00",
+          "DateTo": "2026-10-28T23:59:59+01:00",
+          "Value": 0.029,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-29T00:00:00+01:00",
+          "DateTo": "2026-10-29T23:59:59+01:00",
+          "Value": 0.028,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-30T00:00:00+01:00",
+          "DateTo": "2026-10-30T23:59:59+01:00",
+          "Value": 0.034,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": true,
+          "IsSettlement": false
+        },
+        {
+          "DateFrom": "2026-10-31T00:00:00+01:00",
+          "DateTo": "2026-10-31T23:59:59+01:00",
+          "Value": 0.0,
+          "UnitName": "MWH",
+          "Label": "",
+          "IsComplete": false,
+          "IsSettlement": false
+        }
+      ],
+      "Label": null
+    }
+  ],
+  "Total": {
+    "Value": 0.918,
+    "DateFrom": "2026-10-01T00:00:00+02:00",
+    "DateTo": "2026-10-31T23:59:59.999+01:00"
+  },
+  "Average": {
+    "Value": 0.031,
+    "DateFrom": "2026-10-01T00:00:00+02:00",
+    "DateTo": "2026-10-30T23:59:59+01:00"
+  },
+  "Maximum": {
+    "Value": 0.054,
+    "DateFrom": "2026-10-18T00:00:00+02:00",
+    "DateTo": "2026-10-18T23:59:59+02:00"
+  },
+  "Minimum": {
+    "Value": 0.011,
+    "DateFrom": "2026-10-02T00:00:00+02:00",
+    "DateTo": "2026-10-02T23:59:59+02:00"
+  }
+}

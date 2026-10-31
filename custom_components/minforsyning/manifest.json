@@ -1,0 +1,17 @@
+{
+  "domain": "minforsyning",
+  "name": "minForsyning",
+  "codeowners": [
+    "@stefan240987"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/stefan240987/homeassistant-minforsyning",
+  "homekit": {},
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/stefan240987/homeassistant-minforsyning/issues",
+  "requirements": [],
+  "ssdp": [],
+  "version": "5.3.0",
+  "zeroconf": []
+}
