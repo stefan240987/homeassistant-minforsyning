@@ -11,6 +11,6 @@
   "issue_tracker": "https://github.com/stefan240987/homeassistant-minforsyning/issues",
   "requirements": [],
   "ssdp": [],
-  "version": "1.0.1",
+  "version": "1.0.2",
   "zeroconf": []
 }
