@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .coordinator import NovafosUpdateCoordinator
+from .dashboard import async_ensure_dashboard
 from .services import async_setup_services
 
 from homeassistant.config_entries import ConfigEntry
@@ -82,6 +83,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     await async_setup_services(hass, coordinator)
+    await _ensure_dashboard(hass)
 
     return True
 
@@ -91,8 +93,22 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
+        await _ensure_dashboard(hass, skip_entry_id=entry.entry_id)
 
     return unload_ok
+
+
+async def _ensure_dashboard(hass: HomeAssistant, skip_entry_id: str | None = None) -> None:
+    """Show the meters in the sidebar. A failure here must not stop the sensors."""
+    try:
+        entries = [
+            item
+            for item in hass.config_entries.async_entries(DOMAIN)
+            if item.entry_id != skip_entry_id
+        ]
+        await async_ensure_dashboard(hass, entries)
+    except Exception:
+        _LOGGER.exception("Kunne ikke oprette overblikket i menuen")
 
 
 async def async_migrate_entry(hass, config_entry: ConfigEntry) -> bool:
