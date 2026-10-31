@@ -5,6 +5,17 @@ import pytest
 from custom_components.minforsyning.pynovafos.novafos import HTTPFailed, LoginFailed, Novafos
 
 
+def test_active_meters_are_requested_as_json(mocker):
+    response = mocker.Mock(status_code=200)
+    response.json.return_value = []
+    post = mocker.patch("requests.post", return_value=response)
+    api = Novafos(timezone="Europe/Copenhagen")
+    api._customer_id = "12345678"
+    api._customer_number = "101010"
+    api._get_active_meters()
+    assert post.call_args.kwargs["json"] == {"IncludeUnits": "true"}
+
+
 def test_missing_selected_meter_does_not_fall_back(mocker):
     response = mocker.Mock(status_code=200)
     response.json.return_value = [

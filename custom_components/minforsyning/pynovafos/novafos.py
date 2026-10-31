@@ -248,7 +248,7 @@ class Novafos:
         url = f"{self._api_url}/api/meter/customerActiveMeters"
 
         try:
-            response = requests.post(url, data=data, headers=headers)
+            response = requests.post(url, json=data, headers=headers)
             if response.status_code in (401, 403):
                 raise LoginFailed("Invalid or expired access token")
             response.raise_for_status()
