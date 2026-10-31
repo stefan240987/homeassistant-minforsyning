@@ -30,6 +30,17 @@ def utility_login_code(plant_number=PLANT_NUMBER, utility_number=UTILITY_NUMBER)
     return f"{int(plant_number):04d}{int(utility_number):03d}"
 
 
+def customer_number_header(number) -> str:
+    """Match the website: a whole customer number is sent without a trailing .0."""
+    if isinstance(number, bool):
+        return str(number)
+    if isinstance(number, float) and number.is_integer():
+        return str(int(number))
+    if isinstance(number, int):
+        return str(number)
+    return str(number)
+
+
 class LoginFailed(Exception):
     """ "Exception class for bad credentials"""
 
@@ -199,7 +210,7 @@ class Novafos:
                     if str(customer["Id"]) == self._selected_customer_id
                 )
             self._customer_id = str(customer["Id"])
-            self._customer_number = str(customer["Number"])
+            self._customer_number = customer_number_header(customer["Number"])
         except (IndexError, KeyError, StopIteration, TypeError) as error:
             raise HTTPFailed("Selected customer is unavailable") from error
         _LOGGER.debug(
@@ -243,7 +254,7 @@ class Novafos:
         """
         headers = self._request_headers(include_customer=True)
 
-        data = {"IncludeUnits": "true"}
+        data = {"IncludeUnits": True}
 
         url = f"{self._api_url}/api/meter/customerActiveMeters"
 

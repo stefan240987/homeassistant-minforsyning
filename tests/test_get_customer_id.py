@@ -27,7 +27,7 @@ def test_select_second_customer(multiple_customers):
     api = Novafos(timezone="Europe/Copenhagen", customer_id="87654321")
     api._get_customer_id()
     assert api._customer_id == "87654321"
-    assert api._customer_number == "7654321.0"
+    assert api._customer_number == "7654321"
 
 
 def test_missing_selected_customer_does_not_fall_back(multiple_customers):
@@ -72,8 +72,8 @@ def test_address_and_meter_remain_selected_on_refresh(
         customer = next(
             item for item in multiple_customers if item["Id"] == customer_id
         )
-        assert post.call_args.kwargs["headers"]["Customer-Number"] == str(
-            customer["Number"]
+        assert post.call_args.kwargs["headers"]["Customer-Number"] == (
+            "1234567" if customer["Id"] == 12345678 else "7654321"
         )
         assert [meter["MeasurementPointId"] for meter in api.get_meter_types()] == [
             point_id

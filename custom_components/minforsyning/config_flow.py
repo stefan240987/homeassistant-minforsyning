@@ -17,7 +17,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.const import CONF_NAME
 
 from .const import DEFAULT_NAME
-from .pynovafos.novafos import HTTPFailed, LoginFailed, Novafos
+from .pynovafos.novafos import HTTPFailed, LoginFailed, Novafos, customer_number_header
 
 import logging
 
@@ -151,7 +151,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 for part in (
                     customer.get("StreetAddress"),
                     customer.get("City"),
-                    customer.get("Number"),
+                    customer_number_header(customer.get("Number"))
+                    if customer.get("Number") not in (None, "")
+                    else None,
                 )
                 if part is not None and part != ""
             )

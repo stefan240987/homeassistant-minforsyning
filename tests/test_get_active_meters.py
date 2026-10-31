@@ -13,7 +13,7 @@ def test_active_meters_are_requested_as_json(mocker):
     api._customer_id = "12345678"
     api._customer_number = "101010"
     api._get_active_meters()
-    assert post.call_args.kwargs["json"] == {"IncludeUnits": "true"}
+    assert post.call_args.kwargs["json"] == {"IncludeUnits": True}
 
 
 def test_missing_selected_meter_does_not_fall_back(mocker):
