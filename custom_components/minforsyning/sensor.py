@@ -73,7 +73,9 @@ async def async_setup_entry(
     sensors.append(CurrentYearCostSensor(name, coordinator, config))
     sensors.append(FloorAreaSensor(name, coordinator, config))
     sensors.append(TokenStatusSensor(name, coordinator, config))
+    sensors.append(TokenSentSensor(name, coordinator, config))
 
+    _hide_heating_statistics(hass, config)
     async_add_entities(sensors)
 
 
@@ -163,6 +165,34 @@ def _sensor_scope(config) -> str:
     return str(config.data.get("measurement_point_id") or config.entry_id)
 
 
+def _hide_heating_statistics(hass, config) -> None:
+    """Skjul varme-statistikken. Den viser aldrig et tal."""
+    try:
+        from homeassistant.helpers import entity_registry as er
+
+        registry = er.async_get(hass)
+        entry_id = config.entry_id
+        for item in er.async_entries_for_config_entry(registry, entry_id):
+            unique_id = item.unique_id or ""
+            if not unique_id.endswith("heating-statistics"):
+                continue
+            if item.disabled_by is not None:
+                continue
+            registry.async_update_entity(
+                item.entity_id,
+                disabled_by=er.RegistryEntryDisabler.INTEGRATION,
+            )
+    except Exception:
+        return
+
+
+def _one_decimal(value):
+    """Højst ét decimal. Tekst og manglende tal sendes videre urørt."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return value
+    return round(float(value), 1)
+
+
 _COPENHAGEN = ZoneInfo("Europe/Copenhagen")
 _DANISH_MONTHS = (
     "januar",
@@ -209,7 +239,7 @@ def _price_per_kwh(coordinator):
 def _kroner(kwh, price):
     if kwh is None or price is None:
         return None
-    return round(float(kwh) * price, 2)
+    return round(float(kwh) * price, 1)
 
 
 def _currency(coordinator) -> str:
@@ -250,7 +280,7 @@ def _labeled_values(points, label_fn, price=None) -> dict[str, float]:
             value = point.get("value_kwh")
             if value is None:
                 continue
-            labeled[label] = float(value)
+            labeled[label] = _one_decimal(float(value))
             continue
         kroner = _kroner(point.get("value_kwh"), price)
         if kroner is None:
@@ -272,7 +302,7 @@ def _rate_attributes(coordinator) -> dict[str, Any]:
     if price is None:
         return {}
     return {
-        "pris_pr_kwh": round(price, 4),
+        "pris_pr_kwh": round(price, 1),
         "priskilde": HUNDESTED_2026_PRICE_SOURCE,
     }
 
@@ -289,14 +319,14 @@ def _floor_area_m2(coordinator):
         return None
     if area <= 0:
         return None
-    return float(area)
+    return round(float(area), 1)
 
 
 def _fixed_area_cost(coordinator):
     area = _floor_area_m2(coordinator)
     if area is None:
         return None
-    return round(area * HUNDESTED_2026_KR_PER_M2, 2)
+    return round(area * HUNDESTED_2026_KR_PER_M2, 1)
 
 
 def _year_cost(coordinator):
@@ -306,7 +336,7 @@ def _year_cost(coordinator):
     fixed = _fixed_area_cost(coordinator)
     if fixed is None:
         return variable
-    return round(variable + fixed, 2)
+    return round(variable + fixed, 1)
 
 
 def _year_kwh(coordinator):
@@ -331,7 +361,7 @@ class LatestDailyConsumptionSensor(MinForsyningSensor):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-    _attr_suggested_display_precision = 3
+    _attr_suggested_display_precision = 1
     _attr_icon = "mdi:radiator"
 
     def __init__(self, name, coordinator, config):
@@ -344,7 +374,7 @@ class LatestDailyConsumptionSensor(MinForsyningSensor):
 
     @property
     def native_value(self) -> StateType:
-        return _latest_kwh(_history_points(self.coordinator))
+        return _one_decimal(_latest_kwh(_history_points(self.coordinator)))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -366,7 +396,7 @@ class LatestDailyCostSensor(MinForsyningSensor):
 
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_suggested_display_precision = 2
+    _attr_suggested_display_precision = 1
     _attr_icon = "mdi:cash"
 
     def __init__(self, name, coordinator, config):
@@ -408,7 +438,7 @@ class AccumulatedConsumptionSensor(MinForsyningSensor):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-    _attr_suggested_display_precision = 3
+    _attr_suggested_display_precision = 1
     _attr_icon = "mdi:chart-line"
 
     def __init__(self, name, coordinator, config):
@@ -430,7 +460,7 @@ class AccumulatedConsumptionSensor(MinForsyningSensor):
             if value is None:
                 continue
             total += float(value)
-        return total
+        return _one_decimal(total)
 
 
 class CurrentMonthConsumptionSensor(MinForsyningSensor):
@@ -439,7 +469,7 @@ class CurrentMonthConsumptionSensor(MinForsyningSensor):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-    _attr_suggested_display_precision = 3
+    _attr_suggested_display_precision = 1
     _attr_icon = "mdi:calendar-month"
 
     def __init__(self, name, coordinator, config):
@@ -455,7 +485,7 @@ class CurrentMonthConsumptionSensor(MinForsyningSensor):
         points = _series_points(self.coordinator, "monthly_points")
         if not points:
             return None
-        return points[-1].get("value_kwh")
+        return _one_decimal(points[-1].get("value_kwh"))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -467,7 +497,7 @@ class CurrentMonthCostSensor(MinForsyningSensor):
 
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_suggested_display_precision = 2
+    _attr_suggested_display_precision = 1
     _attr_icon = "mdi:cash"
 
     def __init__(self, name, coordinator, config):
@@ -503,7 +533,7 @@ class CurrentYearConsumptionSensor(MinForsyningSensor):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-    _attr_suggested_display_precision = 3
+    _attr_suggested_display_precision = 1
     _attr_icon = "mdi:calendar-range"
 
     def __init__(self, name, coordinator, config):
@@ -516,7 +546,7 @@ class CurrentYearConsumptionSensor(MinForsyningSensor):
 
     @property
     def native_value(self) -> StateType:
-        return _year_kwh(self.coordinator)
+        return _one_decimal(_year_kwh(self.coordinator))
 
 
 class CurrentYearCostSensor(MinForsyningSensor):
@@ -524,7 +554,7 @@ class CurrentYearCostSensor(MinForsyningSensor):
 
     _attr_device_class = SensorDeviceClass.MONETARY
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_suggested_display_precision = 2
+    _attr_suggested_display_precision = 1
     _attr_icon = "mdi:cash"
 
     def __init__(self, name, coordinator, config):
@@ -557,7 +587,7 @@ class FloorAreaSensor(MinForsyningSensor):
 
     _attr_native_unit_of_measurement = UnitOfArea.SQUARE_METERS
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_suggested_display_precision = 0
+    _attr_suggested_display_precision = 1
     _attr_icon = "mdi:floor-plan"
 
     def __init__(self, name, coordinator, config):
@@ -597,3 +627,35 @@ class TokenStatusSensor(MinForsyningSensor):
         if expires is None:
             return {}
         return {"udløber": expires.isoformat()}
+
+
+class TokenSentSensor(MinForsyningSensor):
+    """Tidspunkt hvor det seneste login-token blev gemt."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:clock-check"
+
+    def __init__(self, name, coordinator, config):
+        super().__init__(coordinator)
+        self._bind_meter(config, name)
+        scope = _sensor_scope(config)
+        self._attr_name = f"{name} Token sidst sendt"
+        self._attr_unique_id = f"{DOMAIN}_{scope}_token_sendt"
+        self.entity_id = f"sensor.{self._attr_unique_id}"
+
+    @property
+    def native_value(self) -> datetime | None:
+        raw = getattr(self.coordinator, "access_token_date_updated", "") or ""
+        if not isinstance(raw, str) or not raw.strip():
+            return None
+        text = raw.strip()
+        parsed = None
+        for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f"):
+            try:
+                parsed = datetime.strptime(text, fmt)
+                break
+            except ValueError:
+                continue
+        if parsed is None:
+            return None
+        return parsed.replace(tzinfo=_COPENHAGEN)

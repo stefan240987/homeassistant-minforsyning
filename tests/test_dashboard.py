@@ -41,6 +41,7 @@ def test_dashboard_lists_the_sensors_with_a_value():
         "aarets_pris",
         "boligareal",
         "token_status",
+        "token_sendt",
     ):
         assert sensor_entity_id(_entry(), suffix) in text
     assert "statistics" not in text

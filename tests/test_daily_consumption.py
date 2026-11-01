@@ -42,6 +42,7 @@ from custom_components.minforsyning.sensor import (
     FloorAreaSensor,
     LatestDailyConsumptionSensor,
     LatestDailyCostSensor,
+    TokenSentSensor,
 )
 from custom_components.minforsyning.services import async_setup_services
 from custom_components.minforsyning.token_status import (
@@ -534,6 +535,50 @@ async def test_fjernvarme_statistics_accumulate_kwh(monkeypatch):
     assert metadata["unit_of_measurement"] == "kWh"
     assert rows[0]["sum"] == 11278.0
     assert rows[1]["sum"] == 11280.5
+
+
+def test_values_show_at_most_one_decimal():
+    tz = ZoneInfo("Europe/Copenhagen")
+    history = [
+        {
+            "start": datetime(2026, 10, 30, tzinfo=tz).astimezone(timezone.utc),
+            "value_kwh": 10.26,
+        }
+    ]
+    coordinator = SimpleNamespace(
+        history_points=history,
+        daily_points=history,
+        monthly_points=history,
+        yearly_points=history,
+        price_per_kwh=1.0,
+        floor_area_m2=87.36,
+    )
+    config = SimpleNamespace(data={}, entry_id="entry-id")
+    day = LatestDailyConsumptionSensor("minForsyning", coordinator, config)
+    assert day.native_value == 10.3
+    assert day.suggested_display_precision == 1
+    assert day.extra_state_attributes["dage"]["30. oktober 2026"] == 10.3
+    assert LatestDailyCostSensor("minForsyning", coordinator, config).native_value == 10.3
+    assert FloorAreaSensor("minForsyning", coordinator, config).native_value == 87.4
+
+
+def test_token_sent_shows_when_the_login_was_saved():
+    config = SimpleNamespace(data={}, entry_id="entry-id")
+    sensor = TokenSentSensor(
+        "minForsyning",
+        SimpleNamespace(access_token_date_updated="2026-11-01T02:15:00"),
+        config,
+    )
+    assert sensor.native_value == datetime(
+        2026, 11, 1, 2, 15, tzinfo=ZoneInfo("Europe/Copenhagen")
+    )
+    assert sensor.entity_id == "sensor.minforsyning_entry-id_token_sendt"
+    missing = TokenSentSensor(
+        "minForsyning",
+        SimpleNamespace(access_token_date_updated=""),
+        config,
+    )
+    assert missing.native_value is None
 
 
 def test_token_status_reads_exp_without_verifying_signature():

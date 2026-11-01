@@ -44,7 +44,7 @@ async def test_saved_grouped_setting_creates_only_hourly_sensors():
     add_entities = Mock()
     await async_setup_sensors(hass, entry, add_entities)
     entities = add_entities.call_args.args[0]
-    assert len(entities) == 11
+    assert len(entities) == 12
     assert {entity.unique_id for entity in entities} == {
         "novafos-water-statistics",
         "novafos-heating-statistics",
@@ -57,7 +57,14 @@ async def test_saved_grouped_setting_creates_only_hourly_sensors():
         "minforsyning_entry-id_aarets_pris",
         "minforsyning_entry-id_boligareal",
         "minforsyning_entry-id_token_status",
+        "minforsyning_entry-id_token_sendt",
     }
+    heating = next(
+        entity
+        for entity in entities
+        if entity.unique_id == "novafos-heating-statistics"
+    )
+    assert heating.entity_description.entity_registry_enabled_default is False
     statistic_entities = [
         entity
         for entity in entities

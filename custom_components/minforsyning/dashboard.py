@@ -13,7 +13,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 DASHBOARD_URL = "min-forsyning"
-LAYOUT_VERSION = 2
+LAYOUT_VERSION = 3
 _MISSING_TEXT = (
     "Der er ikke hentet tal endnu.\n\n"
     "Loginnet holder kun omkring en time. Log ind på minForsyning, "
@@ -32,6 +32,7 @@ SENSOR_CARDS = (
     ("akkumuleret_totalforbrug", "Seneste 30 dage"),
     ("boligareal", "Boligareal"),
     ("token_status", "Login"),
+    ("token_sendt", "Token sidst sendt"),
 )
 
 
@@ -94,7 +95,8 @@ def build_dashboard_config(entries, ids_by_entry=None, values_missing=False) -> 
                 "type": "markdown",
                 "content": (
                     "Tryk på et tal for at se de enkelte dage og måneder. "
-                    "**Login** viser, om forbindelsen til minForsyning stadig virker."
+                    "**Login** viser, om forbindelsen til minForsyning stadig virker. "
+                    "**Token sidst sendt** viser, hvornår loginnet sidst blev lagt ind."
                 ),
             }
         )
