@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.const import CONF_NAME, UnitOfArea, UnitOfEnergy
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -54,14 +55,13 @@ async def async_setup_entry(
     if "water" in coordinator.data[0]:
         for description in WATER_SENSOR_TYPES:
             sensors.append(
-                NovafosWaterSensor(name, coordinator, description, config.data)
+                NovafosWaterSensor(name, coordinator, description, config)
             )
-            # _LOGGER.debug("Adding Novafos sensor %s", description.name)
 
     if "heating" in coordinator.data[0]:
         for description in HEATING_SENSOR_TYPES:
             sensors.append(
-                NovafosWaterSensor(name, coordinator, description, config.data)
+                NovafosWaterSensor(name, coordinator, description, config)
             )
 
     sensors.append(LatestDailyConsumptionSensor(name, coordinator, config))
@@ -77,14 +77,34 @@ async def async_setup_entry(
     async_add_entities(sensors)
 
 
-class NovafosWaterSensor(CoordinatorEntity, SensorEntity):
+class MinForsyningSensor(CoordinatorEntity, SensorEntity):
+    """A meter sensor that stays visible, also when the login has expired."""
+
+    def _bind_meter(self, config, name: str) -> None:
+        entry_id = getattr(config, "entry_id", None)
+        if not entry_id:
+            return
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry_id)},
+            name=name,
+            manufacturer="minForsyning",
+        )
+
+    @property
+    def available(self) -> bool:
+        return True
+
+
+class NovafosWaterSensor(MinForsyningSensor):
     """Representation of a Sensor."""
 
     entity_description: NovafosSensorDescription
 
-    def __init__(self, name, coordinator, description, entry_data=None):
+    def __init__(self, name, coordinator, description, config=None):
         """Initialise the coordinator"""
         super().__init__(coordinator)
+        self._bind_meter(config, name)
+        entry_data = getattr(config, "data", config)
 
         """Initialize the sensor."""
         self.entity_description = description
@@ -305,7 +325,7 @@ def _year_kwh(coordinator):
     return total
 
 
-class LatestDailyConsumptionSensor(CoordinatorEntity, SensorEntity):
+class LatestDailyConsumptionSensor(MinForsyningSensor):
     """Seneste registrerede dagsforbrug i kWh."""
 
     _attr_device_class = SensorDeviceClass.ENERGY
@@ -316,6 +336,7 @@ class LatestDailyConsumptionSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, name, coordinator, config):
         super().__init__(coordinator)
+        self._bind_meter(config, name)
         scope = _sensor_scope(config)
         self._attr_name = f"{name} Seneste dagsforbrug"
         self._attr_unique_id = f"{DOMAIN}_{scope}_seneste_dagsforbrug"
@@ -340,7 +361,7 @@ class LatestDailyConsumptionSensor(CoordinatorEntity, SensorEntity):
         return attrs
 
 
-class LatestDailyCostSensor(CoordinatorEntity, SensorEntity):
+class LatestDailyCostSensor(MinForsyningSensor):
     """Pris for den seneste dag, i kroner. Tidligere dage ligger som attributter."""
 
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -350,6 +371,7 @@ class LatestDailyCostSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, name, coordinator, config):
         super().__init__(coordinator)
+        self._bind_meter(config, name)
         scope = _sensor_scope(config)
         self._attr_name = f"{name} Seneste dagspris"
         self._attr_unique_id = f"{DOMAIN}_{scope}_seneste_dagspris"
@@ -380,7 +402,7 @@ class LatestDailyCostSensor(CoordinatorEntity, SensorEntity):
         return attrs
 
 
-class AccumulatedConsumptionSensor(CoordinatorEntity, SensorEntity):
+class AccumulatedConsumptionSensor(MinForsyningSensor):
     """Sum af de hentede dagsværdier i kWh."""
 
     _attr_device_class = SensorDeviceClass.ENERGY
@@ -391,6 +413,7 @@ class AccumulatedConsumptionSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, name, coordinator, config):
         super().__init__(coordinator)
+        self._bind_meter(config, name)
         scope = _sensor_scope(config)
         self._attr_name = f"{name} Akkumuleret totalforbrug"
         self._attr_unique_id = f"{DOMAIN}_{scope}_akkumuleret_totalforbrug"
@@ -410,7 +433,7 @@ class AccumulatedConsumptionSensor(CoordinatorEntity, SensorEntity):
         return total
 
 
-class CurrentMonthConsumptionSensor(CoordinatorEntity, SensorEntity):
+class CurrentMonthConsumptionSensor(MinForsyningSensor):
     """Forbrug i den seneste måned i året, i kWh. Øvrige måneder ligger som attributter."""
 
     _attr_device_class = SensorDeviceClass.ENERGY
@@ -421,6 +444,7 @@ class CurrentMonthConsumptionSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, name, coordinator, config):
         super().__init__(coordinator)
+        self._bind_meter(config, name)
         scope = _sensor_scope(config)
         self._attr_name = f"{name} Månedens forbrug"
         self._attr_unique_id = f"{DOMAIN}_{scope}_maanedens_forbrug"
@@ -438,7 +462,7 @@ class CurrentMonthConsumptionSensor(CoordinatorEntity, SensorEntity):
         return _month_attributes(_series_points(self.coordinator, "monthly_points"))
 
 
-class CurrentMonthCostSensor(CoordinatorEntity, SensorEntity):
+class CurrentMonthCostSensor(MinForsyningSensor):
     """Pris for den seneste måned, i kroner. Øvrige måneder ligger som attributter."""
 
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -448,6 +472,7 @@ class CurrentMonthCostSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, name, coordinator, config):
         super().__init__(coordinator)
+        self._bind_meter(config, name)
         scope = _sensor_scope(config)
         self._attr_name = f"{name} Månedens pris"
         self._attr_unique_id = f"{DOMAIN}_{scope}_maanedens_pris"
@@ -472,7 +497,7 @@ class CurrentMonthCostSensor(CoordinatorEntity, SensorEntity):
         return attrs
 
 
-class CurrentYearConsumptionSensor(CoordinatorEntity, SensorEntity):
+class CurrentYearConsumptionSensor(MinForsyningSensor):
     """Forbrug i det igangværende kalenderår, i kWh."""
 
     _attr_device_class = SensorDeviceClass.ENERGY
@@ -483,6 +508,7 @@ class CurrentYearConsumptionSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, name, coordinator, config):
         super().__init__(coordinator)
+        self._bind_meter(config, name)
         scope = _sensor_scope(config)
         self._attr_name = f"{name} Årets forbrug"
         self._attr_unique_id = f"{DOMAIN}_{scope}_aarets_forbrug"
@@ -493,7 +519,7 @@ class CurrentYearConsumptionSensor(CoordinatorEntity, SensorEntity):
         return _year_kwh(self.coordinator)
 
 
-class CurrentYearCostSensor(CoordinatorEntity, SensorEntity):
+class CurrentYearCostSensor(MinForsyningSensor):
     """Pris for det igangværende kalenderår, i kroner."""
 
     _attr_device_class = SensorDeviceClass.MONETARY
@@ -503,6 +529,7 @@ class CurrentYearCostSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, name, coordinator, config):
         super().__init__(coordinator)
+        self._bind_meter(config, name)
         scope = _sensor_scope(config)
         self._attr_name = f"{name} Årets pris"
         self._attr_unique_id = f"{DOMAIN}_{scope}_aarets_pris"
@@ -525,7 +552,7 @@ class CurrentYearCostSensor(CoordinatorEntity, SensorEntity):
         return attrs
 
 
-class FloorAreaSensor(CoordinatorEntity, SensorEntity):
+class FloorAreaSensor(MinForsyningSensor):
     """Boligareal fra BBR, i kvadratmeter."""
 
     _attr_native_unit_of_measurement = UnitOfArea.SQUARE_METERS
@@ -535,6 +562,7 @@ class FloorAreaSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, name, coordinator, config):
         super().__init__(coordinator)
+        self._bind_meter(config, name)
         scope = _sensor_scope(config)
         self._attr_name = f"{name} Boligareal"
         self._attr_unique_id = f"{DOMAIN}_{scope}_boligareal"
@@ -545,13 +573,14 @@ class FloorAreaSensor(CoordinatorEntity, SensorEntity):
         return _floor_area_m2(self.coordinator)
 
 
-class TokenStatusSensor(CoordinatorEntity, SensorEntity):
+class TokenStatusSensor(MinForsyningSensor):
     """Gyldighed af Bearer-tokenet ud fra JWT exp-claim."""
 
     _attr_icon = "mdi:key-chain"
 
     def __init__(self, name, coordinator, config):
         super().__init__(coordinator)
+        self._bind_meter(config, name)
         scope = _sensor_scope(config)
         self._attr_name = f"{name} Token-status"
         self._attr_unique_id = f"{DOMAIN}_{scope}_token_status"

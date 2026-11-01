@@ -7,7 +7,7 @@ from .dashboard import async_ensure_dashboard
 from .services import async_setup_services
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
@@ -100,6 +100,19 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def _ensure_dashboard(hass: HomeAssistant, skip_entry_id: str | None = None) -> None:
     """Show the meters in the sidebar. A failure here must not stop the sensors."""
+    if not getattr(hass, "is_running", True):
+        bucket = hass.data.setdefault(DOMAIN, {})
+        if bucket.get("dashboard_listener"):
+            return
+        bucket["dashboard_listener"] = True
+
+        async def _on_start(_event) -> None:
+            bucket.pop("dashboard_listener", None)
+            await _ensure_dashboard(hass)
+
+        hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, _on_start)
+        return
+
     try:
         entries = [
             item

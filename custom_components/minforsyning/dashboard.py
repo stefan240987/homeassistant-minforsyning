@@ -13,7 +13,13 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 DASHBOARD_URL = "min-forsyning"
-LAYOUT_VERSION = 1
+LAYOUT_VERSION = 2
+_MISSING_TEXT = (
+    "Der er ikke hentet tal endnu.\n\n"
+    "Loginnet holder kun omkring en time. Log ind på minForsyning, "
+    "og send loginnet igen med udvidelsen i Chrome. "
+    "Tallene kommer frem her, når de er hentet."
+)
 
 # The statistics sensor stays unknown on purpose. These are the sensors with a value.
 SENSOR_CARDS = (
@@ -45,82 +51,57 @@ def _heading(entry) -> str:
     return title or name
 
 
-def build_dashboard_config(entries) -> dict[str, Any]:
+def _ids_for_entry(entry, ids_by_entry) -> dict[str, str]:
+    found = (ids_by_entry or {}).get(entry.entry_id, {})
+    return {
+        suffix: found.get(suffix) or sensor_entity_id(entry, suffix)
+        for suffix, _label in SENSOR_CARDS
+    }
+
+
+def build_dashboard_config(entries, ids_by_entry=None, values_missing=False) -> dict[str, Any]:
     """Lovelace config that shows each meter's current numbers."""
-    sections: list[dict[str, Any]] = []
+    cards: list[dict[str, Any]] = []
+    if values_missing and entries:
+        cards.append({"type": "markdown", "content": _MISSING_TEXT})
     for entry in entries:
-        tiles = [
+        ids = _ids_for_entry(entry, ids_by_entry)
+        cards.append(
             {
-                "type": "tile",
-                "entity": sensor_entity_id(entry, suffix),
-                "name": label,
-            }
-            for suffix, label in SENSOR_CARDS
-        ]
-        sections.append(
-            {
-                "type": "grid",
-                "cards": [
-                    {
-                        "type": "heading",
-                        "heading": _heading(entry),
-                        "icon": "mdi:radiator",
-                    },
-                    *tiles,
+                "type": "entities",
+                "title": _heading(entry),
+                "state_color": True,
+                "entities": [
+                    {"entity": ids[suffix], "name": label}
+                    for suffix, label in SENSOR_CARDS
                 ],
             }
         )
-        sections.append(
+        cards.append(
             {
-                "type": "grid",
-                "cards": [
-                    {
-                        "type": "heading",
-                        "heading": "Udvikling",
-                        "icon": "mdi:chart-line",
-                    },
-                    {
-                        "type": "history-graph",
-                        "hours_to_show": 24 * 30,
-                        "entities": [
-                            {
-                                "entity": sensor_entity_id(
-                                    entry, "seneste_dagsforbrug"
-                                ),
-                                "name": "Seneste dag",
-                            },
-                            {
-                                "entity": sensor_entity_id(entry, "maanedens_forbrug"),
-                                "name": "Denne måned",
-                            },
-                            {
-                                "entity": sensor_entity_id(entry, "aarets_forbrug"),
-                                "name": "I år",
-                            },
-                        ],
-                    },
-                    {
-                        "type": "markdown",
-                        "content": (
-                            "Tryk på et tal for at se de enkelte dage og måneder. "
-                            "**Login** viser, om forbindelsen til minForsyning stadig virker."
-                        ),
-                    },
+                "type": "history-graph",
+                "title": "Udvikling",
+                "hours_to_show": 24 * 30,
+                "entities": [
+                    {"entity": ids["seneste_dagsforbrug"], "name": "Seneste dag"},
+                    {"entity": ids["maanedens_forbrug"], "name": "Denne måned"},
+                    {"entity": ids["aarets_forbrug"], "name": "I år"},
                 ],
+            }
+        )
+        cards.append(
+            {
+                "type": "markdown",
+                "content": (
+                    "Tryk på et tal for at se de enkelte dage og måneder. "
+                    "**Login** viser, om forbindelsen til minForsyning stadig virker."
+                ),
             }
         )
 
-    if not sections:
-        sections.append(
-            {
-                "type": "grid",
-                "cards": [
-                    {
-                        "type": "markdown",
-                        "content": "Der er ingen måler tilknyttet endnu.",
-                    }
-                ],
-            }
+    if not cards:
+        cards.append(
+            {"type": "markdown", "content": "Der er ingen måler tilknyttet endnu."}
         )
 
     return {
@@ -132,12 +113,17 @@ def build_dashboard_config(entries) -> dict[str, Any]:
                 "title": "Forbrug",
                 "path": "forbrug",
                 "icon": "mdi:radiator",
-                "type": "sections",
-                "max_columns": 2,
-                "sections": sections,
+                "cards": cards,
             }
         ],
     }
+
+
+def _collection_from_handler(handler):
+    owner = getattr(handler, "__self__", None)
+    if owner is None:
+        owner = getattr(getattr(handler, "func", None), "__self__", None)
+    return getattr(owner, "storage_collection", None)
 
 
 def _dashboards_collection(hass: HomeAssistant):
@@ -145,12 +131,37 @@ def _dashboards_collection(hass: HomeAssistant):
     websocket = hass.data.get("websocket_api")
     if not isinstance(websocket, dict):
         return None
-    registered = websocket.get("lovelace/dashboards/list")
-    if not registered:
-        return None
-    handler = registered[0]
-    owner = getattr(handler, "__self__", None)
-    return getattr(owner, "storage_collection", None)
+    for command, registered in websocket.items():
+        handler = registered[0] if isinstance(registered, tuple) else registered
+        collection = _collection_from_handler(handler)
+        if collection is None or not hasattr(collection, "async_create_item"):
+            continue
+        key = getattr(getattr(collection, "store", None), "key", None)
+        if key == "lovelace_dashboards" or command == "lovelace/dashboards/list":
+            return collection
+    return None
+
+
+def _show_in_sidebar(hass: HomeAssistant) -> None:
+    """Make the overview visible even if Lovelace did not register the panel."""
+    if not hasattr(getattr(hass, "bus", None), "async_fire"):
+        return
+    from homeassistant.components import frontend
+
+    details = {
+        "sidebar_title": "minForsyning",
+        "sidebar_icon": "mdi:radiator",
+        "frontend_url_path": DASHBOARD_URL,
+        "config": {"mode": "storage"},
+        "require_admin": False,
+        "show_in_sidebar": True,
+    }
+    try:
+        frontend.async_register_built_in_panel(hass, "lovelace", **details)
+    except ValueError:
+        frontend.async_register_built_in_panel(
+            hass, "lovelace", update=True, **details
+        )
 
 
 def _should_save(current: dict[str, Any] | None, config: dict[str, Any]) -> bool:
@@ -169,10 +180,14 @@ async def async_ensure_dashboard(hass: HomeAssistant, entries) -> None:
     collection = _dashboards_collection(hass)
     lovelace = hass.data.get(LOVELACE_DATA)
     if collection is None or lovelace is None:
-        _LOGGER.debug("Lovelace er ikke klar, så overblikket springes over")
+        _LOGGER.warning("Lovelace er ikke klar, så overblikket kan ikke vises endnu")
         return
 
-    config = build_dashboard_config(entries)
+    config = build_dashboard_config(
+        entries,
+        _entity_ids(hass, entries),
+        values_missing=_values_missing(hass, entries),
+    )
     existing = next(
         (
             item
@@ -204,6 +219,43 @@ async def async_ensure_dashboard(hass: HomeAssistant, entries) -> None:
     except ConfigNotFound:
         current = None
 
-    if not _should_save(current, config):
-        return
-    await store.async_save(config)
+    if _should_save(current, config):
+        await store.async_save(config)
+    _show_in_sidebar(hass)
+
+
+def _entity_ids(hass: HomeAssistant, entries) -> dict[str, dict[str, str]]:
+    """Real entity ids from the registry, when Home Assistant has registered them."""
+    try:
+        from homeassistant.helpers import entity_registry as er
+
+        registry = er.async_get(hass)
+        found: dict[str, dict[str, str]] = {}
+        for entry in entries:
+            matches: dict[str, str] = {}
+            for item in er.async_entries_for_config_entry(registry, entry.entry_id):
+                unique_id = item.unique_id or ""
+                for suffix, _label in SENSOR_CARDS:
+                    if unique_id.endswith(f"_{suffix}"):
+                        matches[suffix] = item.entity_id
+            if matches:
+                found[entry.entry_id] = matches
+        return found
+    except Exception:
+        return {}
+
+
+def _values_missing(hass: HomeAssistant, entries) -> bool:
+    states = getattr(hass, "states", None)
+    if states is None or not entries:
+        return False
+    checked = False
+    for entry in entries:
+        for suffix in ("seneste_dagsforbrug", "maanedens_forbrug", "aarets_forbrug"):
+            state = states.get(sensor_entity_id(entry, suffix))
+            if state is None:
+                continue
+            checked = True
+            if state.state not in ("unknown", "unavailable", "none", ""):
+                return False
+    return checked

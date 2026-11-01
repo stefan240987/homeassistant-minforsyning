@@ -88,17 +88,17 @@ class NovafosUpdateCoordinator(DataUpdateCoordinator):
 
         meter_year_data = None
         hourly_statistics = None
-        self.daily_points = []
-        self.history_points = []
-        self.monthly_points = []
-        self.yearly_points = []
-        self.price_per_kwh = HUNDESTED_2026_KR_PER_KWH
-        self.floor_area_m2 = None
         if await self.hass.async_add_executor_job(
             self.api.authenticate_using_access_token,
             self.access_token,
             self.access_token_date_updated,
         ):
+            self.daily_points = []
+            self.history_points = []
+            self.monthly_points = []
+            self.yearly_points = []
+            self.price_per_kwh = HUNDESTED_2026_KR_PER_KWH
+            self.floor_area_m2 = None
             # Retrieve latest data from the API
             # if True:
             try:
